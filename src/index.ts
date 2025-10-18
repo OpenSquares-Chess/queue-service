@@ -49,19 +49,21 @@ app.get('/', validateToken, sseHeaders, async (req, res) => {
         clients.delete(clientId);
     });
 
-    await redisClient.lPush('players', playerId);
+    await redisClient.lPush('players', clientId);
 });
 
 redisSubscriber.subscribe('matchmaking:queue1', (message: string) => {
-    const { playerId, matchInfo } = JSON.parse(message);
+    const { playerId: clientId, matchInfo } = JSON.parse(message);
+    const client = clients.get(clientId);
 
-    clients.forEach((client) => {
-        if (client.id.startsWith(playerId)) {
-            client.res.write(`event: matchFound\n`);
-            client.res.write(`data: ${JSON.stringify(matchInfo)}\n\n`);
-            client.res.end();
-        }
-    });
+    if (!client) {
+        console.log(`Client ${clientId} not found`);
+        return;
+    }
+
+    client.res.write(`event: matchFound\n`);
+    client.res.write(`data: ${JSON.stringify(matchInfo)}\n\n`);
+    client.res.end();
 });
 
 app.listen(PORT, () => {
