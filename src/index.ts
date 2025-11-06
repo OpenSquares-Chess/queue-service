@@ -1,58 +1,71 @@
-import express from 'express';
+import WebSocket, { WebSocketServer } from 'ws';
 import { createClient } from 'redis';
-import { validateToken } from './middleware/auth';
+import { validateToken } from './auth';
 
-const app = express();
-const PORT = 3000;
+const PORT = 4000;
 
 const redisClient = createClient({
-    url: 'redis://host.docker.internal:6379',
+    url: 'redis://localhost:6379',
 });
 redisClient.connect();
 
 const redisSubscriber = createClient({
-    url: 'redis://host.docker.internal:6379',
+    url: 'redis://localhost:6379',
 });
 redisSubscriber.connect();
 
-interface SSEClient {
-    id: string;
-    res: express.Response;
+interface ExtWebSocket extends WebSocket {
+    alive?: boolean;
+    authenticated?: boolean;
 }
 
-const clients = new Map<string, SSEClient>();
+const clients = new Map<string, ExtWebSocket>();
 
-function sseHeaders(req: express.Request, res: express.Response, next: express.NextFunction) {
-    res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
+const wss = new WebSocketServer({ port: PORT });
+
+wss.on('connection', (ws: ExtWebSocket) => {
+    ws.alive = true;
+    ws.authenticated = false;
+    ws.on('pong', () => {
+        ws.alive = true;
+    })
+    ws.on('message', (message: string | Buffer) => {
+        if (!ws.authenticated) {
+            const token = message.toString();
+            validateToken(token, (sub) => {
+                if (sub) {
+                    ws.authenticated = true;
+                    const clientId = `${sub}-${Date.now()}`;
+                    console.log(`Client ${clientId} connected`);
+                    clients.set(clientId, ws);
+                    redisClient.lPush('players', clientId);
+                    ws.on('close', async () => {
+                        console.log(`Client ${clientId} disconnected`);
+                        clients.delete(clientId);
+                        await redisClient.lRem('players', 0, clientId);
+                    })
+                } else {
+                    ws.close();
+                }
+            });
+        } else if (message.toString() === 'leave') {
+            ws.close();
+        }
     });
-    res.flushHeaders();
-    next();
-}
-
-app.get('/', validateToken, sseHeaders, async (req, res) => {
-    const playerId = (req as any).user.sub;
-    const clientId = `${playerId}-${Date.now()}`;
-
-    console.log(`New player connected: ${playerId}`);
-
-    clients.set(clientId, { id: clientId, res });
-
-    const keepAliveInterval = setInterval(() => {
-        res.write(': keep-alive\n\n');
-    }, 25000);
-
-    req.on('close', () => {
-        clearInterval(keepAliveInterval);
-        clients.delete(clientId);
-    });
-
-    await redisClient.lPush('players', clientId);
 });
 
-redisSubscriber.subscribe('matchmaking:queue1', (message: string) => {
+const interval = setInterval(() => {
+    wss.clients.forEach((client: ExtWebSocket) => {
+        if (client.alive === false) {
+            client.terminate();
+        } else {
+            client.alive = false;
+            client.ping();
+        }
+    })
+}, 30000);
+
+redisSubscriber.subscribe('matchmaking:queue', (message: string) => {
     const { playerId: clientId, matchInfo } = JSON.parse(message);
     const client = clients.get(clientId);
 
@@ -61,12 +74,7 @@ redisSubscriber.subscribe('matchmaking:queue1', (message: string) => {
         return;
     }
 
-    client.res.write(`event: matchFound\n`);
-    client.res.write(`data: ${JSON.stringify(matchInfo)}\n\n`);
-    client.res.end();
-});
-
-app.listen(PORT, () => {
-    console.log(`Queue service listening on port ${PORT}`);
+    client.send(JSON.stringify(matchInfo));
+    client.close();
 });
 

@@ -1,4 +1,3 @@
-import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
 
@@ -19,25 +18,17 @@ function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
     });
 }
 
-export const validateToken = (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'No token provided or invalid format' });
-    }
-
-    const token = authHeader.split(' ')[1];
-
+export const validateToken = (token: string, callback: (sub: string | undefined) => void) => {
     jwt.verify(token, getKey, {
-        audience: 'game-server',
+        audience: 'queue-service',
         issuer: keycloakRealmUrl,
         algorithms: ['RS256']
     }, (err, decoded) => {
         if (err) {
             console.error('Token validation error:', err);
-            return res.status(403).json({ message: 'Invalid token' });
+            callback(undefined);
+        } else {
+            callback(decoded?.sub as string);
         }
-        (req as any).user = decoded;
-        next();
     });
 };
