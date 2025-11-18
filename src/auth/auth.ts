@@ -1,7 +1,8 @@
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
+import 'dotenv/config';
 
-const keycloakRealmUrl = 'https://auth.opensquares.xyz/realms/opensquares';
+const keycloakRealmUrl = process.env.KEYCLOAK_REALM_URL;
 
 const client = jwksClient.default({
     jwksUri: `${keycloakRealmUrl}/protocol/openid-connect/certs`,

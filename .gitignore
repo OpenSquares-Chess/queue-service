@@ -142,3 +142,9 @@ dist
 .svelte-kit
 
 # End of https://www.toptal.com/developers/gitignore/api/node
+
+# Nix
+flake.nix
+flake.lock
+.envrc
+.direnv
