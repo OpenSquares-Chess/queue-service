@@ -1,0 +1,37 @@
+{
+  "name": "queue-service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenSquares-Chess/queue-service.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/OpenSquares-Chess/queue-service/issues"
+  },
+  "homepage": "https://github.com/OpenSquares-Chess/queue-service#readme",
+  "devDependencies": {
+    "@tsconfig/node24": "^24.0.1",
+    "@types/cors": "^2.8.19",
+    "@types/node": "^24.8.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@types/ws": "^8.18.1",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.2.0",
+    "redis": "^5.8.3",
+    "ws": "^8.18.3"
+  }
+}
