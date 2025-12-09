@@ -8,6 +8,10 @@ const client = jwksClient.default({
     jwksUri: `${keycloakRealmUrl}/protocol/openid-connect/certs`,
 });
 
+interface CustomJwtPayload extends jwt.JwtPayload {
+    account_id: string;
+}
+
 function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
     client.getSigningKey(header.kid, (err, key) => {
         if (err) {
@@ -19,7 +23,7 @@ function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
     });
 }
 
-export const validateToken = (token: string, callback: (sub: string | undefined) => void) => {
+export const validateToken = (token: string, callback: (accountId: string | undefined) => void) => {
     jwt.verify(token, getKey, {
         audience: 'queue-service',
         issuer: keycloakRealmUrl,
@@ -29,7 +33,8 @@ export const validateToken = (token: string, callback: (sub: string | undefined)
             console.error('Token validation error:', err);
             callback(undefined);
         } else {
-            callback(decoded?.sub as string);
+            const customPayload = decoded as CustomJwtPayload;
+            callback(customPayload?.account_id as string);
         }
     });
 };

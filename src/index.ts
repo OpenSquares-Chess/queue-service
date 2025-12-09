@@ -32,10 +32,10 @@ wss.on('connection', (ws: ExtWebSocket) => {
     ws.on('message', (message: string | Buffer) => {
         if (!ws.authenticated) {
             const token = message.toString();
-            validateToken(token, (sub) => {
-                if (sub) {
+            validateToken(token, (accountId) => {
+                if (accountId) {
                     ws.authenticated = true;
-                    const clientId = `${sub}-${Date.now()}`;
+                    const clientId = `${accountId}-${Date.now()}`;
                     console.log(`Client ${clientId} connected`);
                     clients.set(clientId, ws);
                     redisClient.lPush('players', clientId);
